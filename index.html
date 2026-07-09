@@ -103,7 +103,7 @@
 <div class="app-container">
     <div class="header">
         <h1>쑥잠이네 가계부</h1>
-        
+        <button onclick="resetUrl()" class="sheet-btn">⚙️ 연결된 시트 URL 변경</button>
         <div style="text-align: center; margin-bottom: 15px;">
             <input type="month" id="month-picker" onchange="changeMonth(this.value)" style="padding: 8px 14px; font-size: 15px; border-radius: 8px; border: none; background-color: #334155; color: #ffffff; font-weight: bold; font-family: inherit; text-align: center; cursor: pointer; outline: none;">
         </div>
@@ -319,8 +319,30 @@
 </div>
 
 <script>
-    const googleWebAppsUrl = "https://script.google.com/macros/s/AKfycbxfOa_7SmQPc0fJ4kOpsJESqaXZwUXZt38ToqleJZAMN1y3XUDAjAM8qp24Y4nj9dPG/exec"; 
+   let googleWebAppsUrl = localStorage.getItem('userGoogleAppsUrl');
 
+function checkAndSetUrl() {
+    if (!googleWebAppsUrl) {
+        const inputUrl = prompt("배포하신 Google Apps Script URL을 입력해주세요:");
+        if (inputUrl) {
+            localStorage.setItem('userGoogleAppsUrl', inputUrl);
+            googleWebAppsUrl = inputUrl;
+            location.reload(); // URL 저장 후 새로고침
+        } else {
+            alert("URL이 설정되지 않아 가계부를 사용할 수 없습니다.");
+        }
+    }
+}
+function resetUrl() {
+            if(confirm("기존 URL을 삭제하고 다시 입력하시겠습니까?")) {
+                localStorage.removeItem('userGoogleAppsUrl');
+                location.reload();
+            }
+        }
+    
+// 초기화 로직 맨 처음에 호출
+checkAndSetUrl();
+    
     let ledgerItems = [];
     let cardLimits = {}; 
     let selectedUser = '남편';
