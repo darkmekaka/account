@@ -828,7 +828,7 @@
                 }
             }
         });
-
+        
         if(currentMainListSort === 'amt_desc') monthItems.sort((a,b) => b.amount - a.amount);
         else if(currentMainListSort === 'amt_asc') monthItems.sort((a,b) => a.amount - b.amount);
         else if(currentMainListSort === 'name') monthItems.sort((a,b) => a.title.localeCompare(b.title));
