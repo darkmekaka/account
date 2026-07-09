@@ -2,79 +2,123 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>가계부 앱</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리집 가계부</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: auto; }
+        body { font-family: 'Pretendard', sans-serif; padding: 20px; max-width: 500px; margin: auto; background: #f9f9f9; }
+        .card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; margin-top: 10px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .hidden { display: none; }
-        .card { border: 1px solid #ddd; padding: 20px; border-radius: 10px; }
-        input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .nav { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .nav button { width: 48%; background: #6c757d; }
     </style>
 </head>
 <body>
 
-    <!-- 1. 설정 화면 (처음 한 번만 사용) -->
+    <!-- 1. 초기 설정 화면 -->
     <div id="setup-screen" class="hidden">
         <h3>초기 설정</h3>
-        <p>본인의 구글 앱 스크립트 웹 앱 URL을 입력해주세요.</p>
+        <p>본인의 구글 웹 앱 URL을 입력하세요.</p>
         <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/...">
         <button onclick="saveAndStart()">가계부 시작하기</button>
     </div>
 
-    <!-- 2. 실제 가계부 메인 화면 -->
+    <!-- 2. 메인 앱 화면 -->
     <div id="app-screen" class="hidden">
-        <h2 id="display-accName">우리집 가계부</h2>
-        <div class="card">
-            <p>기록 화면이 여기에 들어갑니다.</p>
-            <button onclick="logout()">설정 변경(URL 초기화)</button>
+        <div class="nav">
+            <button onclick="showView('main')">가계부</button>
+            <button onclick="showView('settings')">설정</button>
+        </div>
+
+        <div id="view-main">
+            <h2 id="acc-title">가계부</h2>
+            <div class="card">
+                <input type="date" id="date">
+                <input type="text" id="memo" placeholder="내용">
+                <input type="number" id="amount" placeholder="금액">
+                <button onclick="addExpense()">저장하기</button>
+            </div>
+            <div id="history-list"></div>
+        </div>
+
+        <div id="view-settings" class="hidden">
+            <h3>앱 설정</h3>
+            <label>가계부 이름</label>
+            <input type="text" id="set-name">
+            <label><input type="checkbox" id="set-noti"> 텔레그램 알림 사용</label>
+            <input type="text" id="set-token" placeholder="봇 토큰">
+            <input type="text" id="set-id" placeholder="채팅 ID">
+            <button onclick="saveSettings()">설정 저장</button>
+            <button onclick="logout()" style="background:#dc3545; margin-top:20px;">URL 초기화 (로그아웃)</button>
         </div>
     </div>
 
 <script>
     const STORAGE_KEY = 'myWebAppsUrl';
-
-    window.onload = async () => {
-        const savedUrl = localStorage.getItem(STORAGE_KEY);
-        
-        if (!savedUrl) {
-            // URL이 없으면 설정 화면 보여줌
-            document.getElementById('setup-screen').classList.remove('hidden');
-        } else {
-            // URL이 있으면 앱 화면 보여줌
+    
+    window.onload = () => {
+        const url = localStorage.getItem(STORAGE_KEY);
+        if (!url) document.getElementById('setup-screen').classList.remove('hidden');
+        else {
             document.getElementById('app-screen').classList.remove('hidden');
-            loadAppData(savedUrl);
+            loadData();
         }
     };
 
-    // 저장하고 시작하기
     function saveAndStart() {
         const url = document.getElementById('scriptUrlInput').value;
-        if (!url) return alert("URL을 입력해주세요.");
         localStorage.setItem(STORAGE_KEY, url);
-        location.reload(); // 새로고침해서 앱 진입
-    }
-
-    // 설정 변경(로그아웃)
-    function logout() {
-        localStorage.removeItem(STORAGE_KEY);
         location.reload();
     }
 
-    // 앱 데이터 로드 (서버 통신)
-    async function loadAppData(url) {
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'getSettings' })
-            });
-            const data = await res.json();
-            if(data.settings) {
-                document.getElementById('display-accName').innerText = data.settings['가계부이름'] || '우리집 가계부';
-            }
-        } catch (e) {
-            alert("연결 오류: URL을 다시 확인해주세요.");
-            logout(); // 오류 시 초기화
+    function logout() { localStorage.removeItem(STORAGE_KEY); location.reload(); }
+
+    function showView(view) {
+        document.getElementById('view-main').classList.toggle('hidden', view !== 'main');
+        document.getElementById('view-settings').classList.toggle('hidden', view !== 'settings');
+    }
+
+    async function apiCall(action, payload = {}) {
+        const res = await fetch(localStorage.getItem(STORAGE_KEY), {
+            method: 'POST',
+            body: JSON.stringify({ action, ...payload })
+        });
+        return await res.json();
+    }
+
+    async function loadData() {
+        const data = await apiCall('getSettings');
+        if (data.settings) {
+            document.getElementById('acc-title').innerText = data.settings['가계부이름'] || '가계부';
+            document.getElementById('set-name').value = data.settings['가계부이름'] || '';
+            document.getElementById('set-noti').checked = data.settings['알림사용여부'] === 'true';
+            document.getElementById('set-token').value = data.settings['텔레그램토큰'] || '';
+            document.getElementById('set-id').value = data.settings['텔레그램ID'] || '';
         }
+    }
+
+    async function addExpense() {
+        const payload = {
+            date: document.getElementById('date').value,
+            memo: document.getElementById('memo').value,
+            amount: document.getElementById('amount').value
+        };
+        await apiCall('addExpense', payload);
+        alert('저장되었습니다!');
+        location.reload();
+    }
+
+    async function saveSettings() {
+        const settings = {
+            '가계부이름': document.getElementById('set-name').value,
+            '알림사용여부': document.getElementById('set-noti').checked ? 'true' : 'false',
+            '텔레그램토큰': document.getElementById('set-token').value,
+            '텔레그램ID': document.getElementById('set-id').value
+        };
+        await apiCall('saveSettings', { settings });
+        alert('설정이 저장되었습니다.');
     }
 </script>
 </body>
