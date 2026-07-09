@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>우리집 실시간 가계부</title>
+    <title id="app-browser-title">우리집 실시간 가계부</title>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; background-color: #f5f7fa; margin: 0; padding: 0; display: flex; justify-content: center; }
         .app-container { width: 100%; max-width: 480px; background-color: #ffffff; min-height: 100vh; box-shadow: 0 0 20px rgba(0,0,0,0.05); display: flex; flex-direction: column; position: relative; }
@@ -20,7 +20,7 @@
         .balance-box .label { font-size: 16px; opacity: 0.7; }
         .balance-box .amount { font-size: 30px; font-weight: bold; }
         
-        /* 입력 섹션 (높이 최적화 반영) */
+        /* 입력 섹션 */
         .input-section { padding: 20px 24px; border-bottom: 8px solid #f5f7fa; }
         .type-selector { display: flex; gap: 15px; margin-bottom: 10px; }
         .type-btn { flex: 1; padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: 8px; text-align: center; font-size: 15px; font-weight: bold; cursor: pointer; background-color: #f8fafc; color: #64748b; transition: all 0.2s; user-select: none; }
@@ -69,8 +69,6 @@
         .item-amount.expense { color: #c62828; }
         
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100; }
-        
-        /* 수정: 모달창 화면 중앙 위치 변경 및 패딩 제거 */
         .card-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 200; justify-content: center; align-items: center; overflow-y: auto; }
         
         .modal-content { background: white; padding: 30px; border-radius: 16px; width: 85%; max-width: 380px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -83,7 +81,6 @@
         .modal-btn.cancel { background-color: #e2e8f0; color: #475569; }
         
         select { padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; background: white; }
-
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 <link rel="manifest" href="manifest.json">
@@ -93,6 +90,7 @@
 </head>
 <body>
 
+<!-- 로딩 오버레이 -->
 <div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 9999; justify-content: center; align-items: center;">
     <div style="background: rgba(0,0,0,0.85); padding: 20px 30px; border-radius: 12px; text-align: center; color: white; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
         <div style="border: 4px solid rgba(255,255,255,0.2); border-top: 4px solid #ffffff; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 12px auto;"></div>
@@ -100,15 +98,35 @@
     </div>
 </div>
 
-<div class="app-container">
+<!-- 최초 사용자 등록용 연동 화면 기본 홈 구성 -->
+<div id="setup-view" style="display: none; width: 100%; max-width: 480px; background: white; min-height: 100vh; box-shadow: 0 0 20px rgba(0,0,0,0.05); padding: 40px 24px; box-sizing: border-box; flex-direction: column; justify-content: center;">
+    <div style="text-align: center; margin-bottom: 30px;">
+        <span style="font-size: 50px;">⚙️</span>
+        <h2 style="color: #1e293b; margin-top: 15px;">가계부 앱 연동 설정</h2>
+        <p style="color: #64748b; font-size: 14px; line-height: 1.5; margin-top: 5px;">구글 앱스 스크립트(GS) 주소를 연동하여<br>본인만의 실시간 가계부 클라우드를 구동합니다.</p>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+        <div>
+            <label style="font-size: 13px; font-weight: bold; color: #475569; display: block; margin-bottom: 6px;">1. Google Apps Script 배포 URL</label>
+            <input type="text" id="setup-api-url" placeholder="https://script.google.com/macros/s/.../exec" style="width: 100%; padding: 12px;">
+        </div>
+        <button onclick="saveInitialSetup()" style="width: 100%; padding: 15px; background-color: #1e293b; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px;">연동 시작 및 데이터 불러오기</button>
+    </div>
+</div>
+
+<!-- 메인 앱 컨테이너 -->
+<div class="app-container" id="main-app-view" style="display: none;">
     <div class="header">
-        <h1>쑥잠이네 가계부</h1>
-        <button onclick="resetUrl()" class="sheet-btn">⚙️ 연결된 시트 URL 변경</button>
+        <h1 id="app-title">우리집 실시간 가계부</h1>
+        
         <div style="text-align: center; margin-bottom: 15px;">
             <input type="month" id="month-picker" onchange="changeMonth(this.value)" style="padding: 8px 14px; font-size: 15px; border-radius: 8px; border: none; background-color: #334155; color: #ffffff; font-weight: bold; font-family: inherit; text-align: center; cursor: pointer; outline: none;">
         </div>
 
-        <a href="https://docs.google.com/spreadsheets/d/1AN2YYoW63gLwkXVi_jpmuMjkrboNkOv5PPoKM0UVfjI/edit?gid=894136498#gid=894136498" target="_blank" class="sheet-btn">구글 시트 바로가기</a>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+            <a href="#" id="spreadsheet-link" target="_blank" class="sheet-btn" style="margin-bottom: 0;">📊 구글 시트 바로가기</a>
+            <button onclick="openSettingsModal()" class="sheet-btn" style="margin-bottom: 0; width: 100%; border: none; cursor: pointer; font-family: inherit; background: rgba(255,255,255,0.15); color: #fff;">⚙️ 가계부 환경설정</button>
+        </div>
         
         <button id="summary-toggle-btn" onclick="toggleSummarySection()" class="sheet-btn" style="width: 100%; border: none; cursor: pointer; font-family: inherit;">💰 0월 수입/정산 요약 보기 ▾</button>
         <div id="summary-section-wrapper" style="display: none; margin-bottom: 10px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
@@ -175,15 +193,7 @@
         <div class="input-row">
             <input type="number" id="amount" placeholder="금액 입력 (원)">
             <select id="card">
-                <option value="선택안함">카드 선택</option>
-                <option value="현대카드">현대카드</option>
-                <option value="bc카드">bc카드</option>
-                <option value="국민카드">국민카드</option>
-                <option value="온누리">온누리</option>
-                <option value="현금/계좌">현금/계좌</option>
-                <option value="롯데카드">롯데카드</option>
-                <option value="신한카드">신한카드</option>
-                <option value="NH카드">NH카드</option>
+                <!-- 동적 렌더링 -->
             </select>
         </div>
 
@@ -211,140 +221,195 @@
         </div>
         <ul class="ledger-list" id="ledger-list"></ul>
     </div>
+</div>
 
-    <div class="card-modal-overlay" id="category-detail-modal" onclick="closeCategoryDetailModal()">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <div class="modal-header-row" style="margin-bottom: 12px;">
-                <div class="modal-title" id="category-detail-title" style="font-size: 16px; font-weight: bold; color: #1e293b;">카테고리 상세</div>
-                <select id="category-sort-select" onchange="setCategorySort(this.value)">
-                    <option value="date_desc">최신순</option>
-                    <option value="date_asc">과거순</option>
-                    <option value="amt_desc">높은금액</option>
-                    <option value="amt_asc">낮은금액</option>
-                    <option value="name">가나다순</option>
+<!-- 카테고리 상세 모달 -->
+<div class="card-modal-overlay" id="category-detail-modal" onclick="closeCategoryDetailModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header-row" style="margin-bottom: 12px;">
+            <div class="modal-title" id="category-detail-title">카테고리 상세</div>
+            <select id="category-sort-select" onchange="setCategorySort(this.value)">
+                <option value="date_desc">최신순</option>
+                <option value="date_asc">과거순</option>
+                <option value="amt_desc">높은금액</option>
+                <option value="amt_asc">낮은금액</option>
+                <option value="name">가나다순</option>
+            </select>
+        </div>
+        <div id="category-detail-summary" style="margin: 10px 0 15px 0; padding: 14px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 14px;"></div>
+        <div id="category-detail-list" style="max-height: 450px; overflow-y: auto; border-top: 1px dashed #cbd5e1; padding-top: 5px;"></div>
+        <button class="modal-btn cancel" style="margin-top:15px; width:100%;" onclick="closeCategoryDetailModal()">닫기</button>
+    </div>
+</div>
+
+<!-- 카드 내역 상세 모달 -->
+<div class="card-modal-overlay" id="card-modal" onclick="closeCardModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header-row">
+            <div class="modal-title" id="card-modal-title">카드 상세</div>
+            <select id="card-sort-select" onchange="setCardSort(this.value)">
+                <option value="date_desc">최신순</option>
+                <option value="date_asc">과거순</option>
+                <option value="amt_desc">높은금액</option>
+                <option value="amt_asc">낮은금액</option>
+                <option value="name">가나다순</option>
+            </select>
+        </div>
+        <div id="card-modal-list" style="max-height: 450px; overflow-y: auto;"></div>
+        <button class="modal-btn cancel" style="margin-top:15px; width:100%;" onclick="closeCardModal()">닫기</button>
+    </div>
+</div>
+
+<!-- 내역 수정/삭제 모달 -->
+<div class="modal-overlay" id="edit-modal">
+    <div class="modal-content">
+        <div class="modal-title">내역 수정 / 삭제</div>
+        <div class="type-selector" style="margin-top: 10px;">
+            <div class="type-btn husband" id="modal-user-husband" onclick="changeModalUser('남편')">남편</div>
+            <div class="type-btn wife" id="modal-user-wife" onclick="changeModalUser('아내')">아내</div>
+        </div>
+        <div class="type-selector">
+            <div class="type-btn income" id="modal-inc" onclick="selectModalType('income')">수입</div>
+            <div class="type-btn expense" id="modal-exp" onclick="selectModalType('expense')">지출</div>
+        </div>
+        <div class="input-row" style="margin-top:12px;">
+            <input type="date" id="modal-date" style="text-align: center;">
+        </div>
+        <div class="input-row">
+            <input type="number" id="modal-amount">
+        </div>
+        <div class="input-row">
+            <select id="modal-card">
+                <!-- 동적 렌더링 -->
+            </select>
+        </div>
+        <div class="input-row">
+            <select id="modal-category"></select>
+        </div>
+        <div class="input-row">
+            <input type="text" id="modal-title">
+        </div>
+        <div class="modal-buttons">
+            <button class="modal-btn delete" onclick="deleteItem()">삭제</button>
+            <button class="modal-btn cancel" onclick="closeModal()">취소</button>
+            <button class="modal-btn save" id="save-btn" onclick="updateItem()">수정완료</button>
+        </div>
+    </div>
+</div>
+
+<!-- 카테고리 관리 편집 모달 -->
+<div class="modal-overlay" id="category-modal">
+    <div class="modal-content">
+        <div class="modal-title">카테고리 편집</div>
+        <div class="input-row" style="margin-top:15px; display: flex; gap: 8px;">
+            <input type="text" id="new-category-name" placeholder="새 카테고리 입력" style="flex: 1; min-width: 0;">
+            <button class="modal-btn save" id="category-add-btn" onclick="addCategory()" style="flex: none; width: 70px; margin-top: 0; padding: 12px 0;">추가</button>
+        </div>
+        <div id="category-manage-list" style="max-height: 200px; overflow-y: auto; margin-top: 12px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 5px; background: #f8fafc;"></div>
+        <div class="modal-buttons" style="margin-top: 15px;">
+            <button class="modal-btn cancel" onclick="closeCategoryModal()" style="width: 100%;">닫기</button>
+        </div>
+    </div>
+</div>
+
+<!-- 카드 실적 목표액 설정 모달 -->
+<div class="modal-overlay" id="card-limit-modal">
+    <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
+        <div class="modal-title" style="margin-bottom: 5px;">카드별 실적 목표 설정</div>
+        <p style="font-size: 12px; color: #64748b; margin-bottom: 15px; margin-top: 0;">매달 채워야 하는 카드별 실적 기준을 입력해주세요.</p>
+        <div id="card-limit-inputs-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        <div class="modal-buttons" style="margin-top: 20px;">
+            <button class="modal-btn cancel" onclick="closeCardLimitModal()">취소</button>
+            <button class="modal-btn save" onclick="saveCardLimits()">설정 저장</button>
+        </div>
+    </div>
+</div>
+
+<!-- 마스터 통합 환경설정 모달 (신규 추가 요건 완벽 제어) -->
+<div class="modal-overlay" id="settings-modal">
+    <div class="modal-content" style="max-height: 85vh; overflow-y: auto; max-width: 400px;">
+        <div class="modal-title" style="border-bottom: 2px solid #1e293b; padding-bottom: 8px; margin-bottom: 15px;">⚙️ 가계부 마스터 환경설정</div>
+        
+        <!-- 앱 네이밍 정보 -->
+        <div style="margin-bottom: 15px;">
+            <label style="font-size: 12px; font-weight: bold; color: #475569; display:block; margin-bottom:5px;">가계부 이름</label>
+            <input type="text" id="settings-ledger-name" style="width:100%; padding: 10px;">
+        </div>
+        
+        <!-- 유저 선택지 별명 커스텀 -->
+        <div style="margin-bottom: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+                <label style="font-size: 12px; font-weight: bold; color: #475569; display:block; margin-bottom:5px;">버튼1 이름 (기존 남편)</label>
+                <input type="text" id="settings-user1" style="width:100%; padding: 10px;">
+            </div>
+            <div>
+                <label style="font-size: 12px; font-weight: bold; color: #475569; display:block; margin-bottom:5px;">버튼2 이름 (기존 아내)</label>
+                <input type="text" id="settings-user2" style="width:100%; padding: 10px;">
+            </div>
+        </div>
+
+        <!-- 카드 목록 추가/삭제 관리 섹션 -->
+        <div style="margin-bottom: 15px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px;">
+            <label style="font-size: 12px; font-weight: bold; color: #475569; display:block; margin-bottom:5px;">💳 앱 내 결제 카드 관리</label>
+            <div style="display: flex; gap: 5px; margin-bottom: 8px;">
+                <input type="text" id="settings-new-card-name" placeholder="추가할 카드명" style="padding:8px; font-size:13px; flex:1;">
+                <button onclick="addCardItem()" style="background:#1e293b; color:white; border:none; padding:0 12px; border-radius:6px; font-size:12px; cursor:pointer;">추가</button>
+            </div>
+            <div id="settings-card-manage-list" style="max-height: 120px; overflow-y:auto; background: white; border:1px solid #e2e8f0; border-radius:6px; padding:4px;"></div>
+        </div>
+        
+        <!-- 텔레그램 연동 정보 및 On/Off 제어 스위치 -->
+        <div style="margin-bottom: 15px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px;">
+            <label style="font-size: 12px; font-weight: bold; color: #166534; display:block; margin-bottom:5px;">📢 텔레그램 실시간 알림 연동</label>
+            <div style="margin-bottom: 8px;">
+                <label style="font-size: 11px; color:#475569;">텔레그램 봇 토큰 (Token)</label>
+                <input type="text" id="settings-telegram-token" placeholder="공란일 경우 알림 미발송" style="width:100%; padding: 8px; font-size:13px;">
+            </div>
+            <div style="margin-bottom: 8px;">
+                <label style="font-size: 11px; color:#475569;">텔레그램 사용자 Chat ID</label>
+                <input type="text" id="settings-telegram-chatid" placeholder="숫자 ID 입력" style="width:100%; padding: 8px; font-size:13px;">
+            </div>
+            <div>
+                <label style="font-size: 11px; color:#475569; display:block; margin-bottom:4px;">알림 기능 사용 상태 (On / Off)</label>
+                <select id="settings-telegram-toggle" style="width:100%; padding:8px; font-size:13px; height:auto;">
+                    <option value="ON">알림 받기 (ON)</option>
+                    <option value="OFF">알림 끄기 (OFF)</option>
                 </select>
             </div>
-            <div id="category-detail-summary" style="margin: 10px 0 15px 0; padding: 14px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 14px;"></div>
-            <div id="category-detail-list" style="max-height: 450px; overflow-y: auto; border-top: 1px dashed #cbd5e1; padding-top: 5px;"></div>
-            <button class="modal-btn cancel" style="margin-top:15px; width:100%;" onclick="closeCategoryDetailModal()">닫기</button>
         </div>
-    </div>
 
-    <div class="card-modal-overlay" id="card-modal" onclick="closeCardModal()">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <div class="modal-header-row">
-                <div class="modal-title" id="card-modal-title">카드 상세</div>
-                <select id="card-sort-select" onchange="setCardSort(this.value)">
-                    <option value="date_desc">최신순</option>
-                    <option value="date_asc">과거순</option>
-                    <option value="amt_desc">높은금액</option>
-                    <option value="amt_asc">낮은금액</option>
-                    <option value="name">가나다순</option>
-                </select>
-            </div>
-            <div id="card-modal-list" style="max-height: 450px; overflow-y: auto;"></div>
-            <button class="modal-btn cancel" style="margin-top:15px; width:100%;" onclick="closeCardModal()">닫기</button>
+        <!-- 연동 API 주소 확인 및 정보 수정 허용 -->
+        <div style="margin-bottom: 20px;">
+            <label style="font-size: 11px; font-weight: bold; color: #94a3b8; display:block; margin-bottom:4px;">GS 배포 연동 주소 변경</label>
+            <input type="text" id="settings-api-url" style="width:100%; padding:8px; font-size:12px; color: #64748b;">
+            <label style="font-size: 11px; font-weight: bold; color: #94a3b8; display:block; margin-bottom:4px; margin-top:6px;">연동된 스프레드리스트 주소</label>
+            <input type="text" id="settings-sheet-url" readonly style="width:100%; padding:8px; font-size:12px; color: #94a3b8; background:#f1f5f9;">
         </div>
-    </div>
 
-    <div class="modal-overlay" id="edit-modal">
-        <div class="modal-content">
-            <div class="modal-title">내역 수정 / 삭제</div>
-            <div class="type-selector">
-                <div class="type-btn husband" id="modal-user-husband" onclick="changeModalUser('남편')">남편</div>
-                <div class="type-btn wife" id="modal-user-wife" onclick="changeModalUser('아내')">아내</div>
-            </div>
-            <div class="type-selector">
-                <div class="type-btn income" id="modal-inc" onclick="selectModalType('income')">수입</div>
-                <div class="type-btn expense" id="modal-exp" onclick="selectModalType('expense')">지출</div>
-            </div>
-            <div class="input-row" style="margin-top:12px;">
-                <input type="date" id="modal-date" style="text-align: center;">
-            </div>
-            <div class="input-row">
-                <input type="number" id="modal-amount">
-            </div>
-            <div class="input-row">
-                <select id="modal-card">
-                    <option value="선택안함">카드 선택</option>
-                    <option value="현대카드">현대카드</option>
-                    <option value="bc카드">bc카드</option>
-                    <option value="국민카드">국민카드</option>
-                    <option value="온누리">온누리</option>
-                    <option value="현금/계좌">현금/계좌</option>
-                    <option value="롯데카드">롯데카드</option>
-                    <option value="신한카드">신한카드</option>
-                    <option value="NH카드">NH카드</option>
-                </select>
-            </div>
-            <div class="input-row">
-                <select id="modal-category"></select>
-            </div>
-            <div class="input-row">
-                <input type="text" id="modal-title">
-            </div>
-            <div class="modal-buttons">
-                <button class="modal-btn delete" onclick="deleteItem()">삭제</button>
-                <button class="modal-btn cancel" onclick="closeModal()">취소</button>
-                <button class="modal-btn save" id="save-btn" onclick="updateItem()">수정완료</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal-overlay" id="category-modal">
-        <div class="modal-content">
-            <div class="modal-title">카테고리 편집</div>
-            <div class="input-row" style="margin-top:15px; display: flex; gap: 8px;">
-                <input type="text" id="new-category-name" placeholder="새 카테고리 입력" style="flex: 1; min-width: 0;">
-                <button class="modal-btn save" id="category-add-btn" onclick="addCategory()" style="flex: none; width: 70px; margin-top: 0; padding: 12px 0;">추가</button>
-            </div>
-            <div id="category-manage-list" style="max-height: 200px; overflow-y: auto; margin-top: 12px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 5px; background: #f8fafc;"></div>
-            <div class="modal-buttons" style="margin-top: 15px;">
-                <button class="modal-btn cancel" onclick="closeCategoryModal()" style="width: 100%;">닫기</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal-overlay" id="card-limit-modal">
-        <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
-            <div class="modal-title" style="margin-bottom: 5px;">카드별 실적 목표 설정</div>
-            <p style="font-size: 12px; color: #64748b; margin-bottom: 15px; margin-top: 0;">매달 채워야 하는 카드별 실적 기준을 입력해주세요.</p>
-            <div id="card-limit-inputs-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
-            <div class="modal-buttons" style="margin-top: 20px;">
-                <button class="modal-btn cancel" onclick="closeCardLimitModal()">취소</button>
-                <button class="modal-btn save" onclick="saveCardLimits()">설정 저장</button>
-            </div>
+        <div class="modal-buttons">
+            <button class="modal-btn cancel" onclick="closeSettingsModal()">취소</button>
+            <button class="modal-btn save" onclick="saveMasterSettings()">모든 설정 저장</button>
         </div>
     </div>
 </div>
 
 <script>
-   let googleWebAppsUrl = localStorage.getItem('userGoogleAppsUrl');
+    let googleWebAppsUrl = localStorage.getItem("googleWebAppsUrl") || "";
 
-function checkAndSetUrl() {
-    if (!googleWebAppsUrl) {
-        const inputUrl = prompt("배포하신 Google Apps Script URL을 입력해주세요:");
-        if (inputUrl) {
-            localStorage.setItem('userGoogleAppsUrl', inputUrl);
-            googleWebAppsUrl = inputUrl;
-            location.reload(); // URL 저장 후 새로고침
-        } else {
-            alert("URL이 설정되지 않아 가계부를 사용할 수 없습니다.");
-        }
-    }
-}
-function resetUrl() {
-            if(confirm("기존 URL을 삭제하고 다시 입력하시겠습니까?")) {
-                localStorage.removeItem('userGoogleAppsUrl');
-                location.reload();
-            }
-        }
-    
-// 초기화 로직 맨 처음에 호출
-checkAndSetUrl();
-    
     let ledgerItems = [];
     let cardLimits = {}; 
+    let categories = [];
+    let cards = [];
+    let appSettings = {
+        ledgerName: "우리집 실시간 가계부",
+        user1: "남편",
+        user2: "아내",
+        telegramToken: "",
+        telegramChatId: "",
+        telegramToggle: "OFF",
+        spreadsheetUrl: "#"
+    };
+
     let selectedUser = '남편';
     let selectedType = 'expense'; 
     let currentEditingId = null; 
@@ -353,30 +418,187 @@ checkAndSetUrl();
     
     let currentCardModalName = '';
     let currentCardSort = 'date_desc'; 
-    
     let currentCategoryModalName = '';
     let currentCategorySort = 'date_desc'; 
     let currentMainListSort = 'date_desc';
-
     let selectedMonth = ''; 
-
-    const defaultCategories = ['식비', '교통비', '쇼핑/패션', '마트/생필품', '문화/여가', '의료/건강', '주거/통신', '카페/간식', '온누리', '기타'];
-    let categories = [...defaultCategories];
 
     function showLoading(msg) { document.getElementById('loading-text').innerText = msg || "데이터를 처리하고 있습니다..."; document.getElementById('loading-overlay').style.display = 'flex'; }
     function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
-    function initCategories() { renderCategoryDropdowns(); }
-    
+
+    // 1~3 요건 구현: 최초 접근 설정 검사 및 연동 등록
+    function checkAppConnection() {
+        if (!googleWebAppsUrl) {
+            document.getElementById("setup-view").style.display = "flex";
+            document.getElementById("main-app-view").style.display = "none";
+        } else {
+            document.getElementById("setup-view").style.display = "none";
+            document.getElementById("main-app-view").style.display = "flex";
+            loadCloudData();
+        }
+    }
+
+    function saveInitialSetup() {
+        const inputUrl = document.getElementById("setup-api-url").value.trim();
+        if(!inputUrl) { alert("Apps Script 배포 주소를 정확히 입력해주세요!"); return; }
+        
+        showLoading("스프레드시트 주소 및 가계부 기본 환경 세팅을 수집하고 있습니다...");
+        fetch(inputUrl)
+        .then(res => res.json())
+        .then(data => {
+            localStorage.setItem("googleWebAppsUrl", inputUrl);
+            googleWebAppsUrl = inputUrl;
+            alert("정상적으로 연동 브릿지가 연결되었습니다!");
+            checkAppConnection();
+        })
+        .catch(err => {
+            alert("입력한 URL 접속에 실패했습니다. 배포 설정을 '모든 사람(Anyone)'으로 설정했는지 검토바랍니다.");
+        })
+        .finally(() => hideLoading());
+    }
+
+    function loadCloudData() {
+        showLoading("클라우드 원격 서버의 가계부 설정 정보를 동기화하고 있습니다...");
+        fetch(googleWebAppsUrl)
+        .then(res => res.json())
+        .then(data => { 
+            ledgerItems = data.items || []; 
+            categories = data.categories || [];
+            cards = data.cards || [];
+            cardLimits = data.cardLimits || {};
+            if(data.settings) appSettings = Object.assign(appSettings, data.settings);
+            
+            applyAppSettings();
+            renderCategoryDropdowns(); 
+            renderCardDropdowns();
+            renderApp(); 
+        })
+        .catch(err => {
+            alert("구글 서버 연동 오류 발생. 설정 창에서 API 주소를 확인하세요.");
+        })
+        .finally(() => hideLoading());
+    }
+
+    // 요건 5 반영: 타이틀 및 사용자 네이밍 동적 적용 및 보존 처리
+    function applyAppSettings() {
+        document.getElementById("app-title").innerText = appSettings.ledgerName;
+        document.getElementById("app-browser-title").innerText = appSettings.ledgerName;
+        document.getElementById("spreadsheet-link").href = appSettings.spreadsheetUrl;
+        
+        document.getElementById("btn-user-husband").innerText = appSettings.user1;
+        document.getElementById("btn-user-wife").innerText = appSettings.user2;
+        document.getElementById("modal-user-husband").innerText = appSettings.user1;
+        document.getElementById("modal-user-wife").innerText = appSettings.user2;
+    }
+
     function renderCategoryDropdowns() {
         const catSelect = document.getElementById('category');
         const modalCatSelect = document.getElementById('modal-category');
-        const currentVal = catSelect.value;
-        const currentModalVal = modalCatSelect.value;
         const optionsHtml = categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
         catSelect.innerHTML = '<option value="" disabled selected hidden>카테고리 선택</option>' + optionsHtml;
         modalCatSelect.innerHTML = '<option value="" disabled selected hidden>카테고리 선택</option>' + optionsHtml;
-        if(currentVal && categories.includes(currentVal)) catSelect.value = currentVal;
-        if(currentModalVal && categories.includes(currentModalVal)) modalCatSelect.value = currentModalVal;
+    }
+
+    // 요건 6 반영: 카드 데이터 동적 셀렉트박스 생성
+    function renderCardDropdowns() {
+        const cardSelect = document.getElementById('card');
+        const mCardSelect = document.getElementById('modal-card');
+        let html = '<option value="선택안함">카드 선택</option>';
+        cards.forEach(c => { html += `<option value="${c}">${c}</option>`; });
+        cardSelect.innerHTML = html;
+        mCardSelect.innerHTML = html;
+    }
+
+    function openSettingsModal() {
+        document.getElementById("settings-ledger-name").value = appSettings.ledgerName;
+        document.getElementById("settings-user1").value = appSettings.user1;
+        document.getElementById("settings-user2").value = appSettings.user2;
+        document.getElementById("settings-telegram-token").value = appSettings.telegramToken || "";
+        document.getElementById("settings-telegram-chatid").value = appSettings.telegramChatId || "";
+        document.getElementById("settings-telegram-toggle").value = appSettings.telegramToggle || "OFF";
+        document.getElementById("settings-api-url").value = googleWebAppsUrl;
+        document.getElementById("settings-sheet-url").value = appSettings.spreadsheetUrl;
+        
+        renderSettingsCardManageList();
+        document.getElementById("settings-modal").style.display = "flex";
+    }
+
+    function closeSettingsModal() { document.getElementById("settings-modal").style.display = "none"; }
+
+    // 요건 6 반영: 설정창 내 카드 목록 렌더링
+    function renderSettingsCardManageList() {
+        const div = document.getElementById("settings-card-manage-list");
+        div.innerHTML = cards.map(c => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px; border-bottom:1px solid #f1f5f9; font-size:13px;">
+                <span>• ${c}</span>
+                ${(c !== '현금/계좌' && c !== '온누리') ? `<button onclick="deleteCardItem('${c}')" style="background:#fee2e2; color:#ef4444; border:none; padding:2px 6px; border-radius:4px; font-size:11px; cursor:pointer;">삭제</button>` : ''}
+            </div>
+        `).join('') || '<span style="color:#94a3b8; font-size:12px;">등록된 자산 카드가 없습니다.</span>';
+    }
+
+    function addCardItem() {
+        const name = document.getElementById("settings-new-card-name").value.trim();
+        if(!name) return;
+        if(cards.includes(name)) { alert("이미 존재하는 카드명입니다."); return; }
+        showLoading("신규 지출 카드를 클라우드에 등록하는 중입니다...");
+        fetch(googleWebAppsUrl, { method: 'POST', body: JSON.stringify({ action: 'addCard', name: name }) })
+        .then(r => r.json()).then(res => {
+            if(res.result === "success") { cards.push(name); document.getElementById("settings-new-card-name").value = ""; renderSettingsCardManageList(); }
+        }).finally(() => hideLoading());
+    }
+
+    function deleteCardItem(name) {
+        if(!confirm(`[${name}] 자산을 완전히 삭제하시겠습니까?`)) return;
+        showLoading("지출 카드 자산을 클라우드에서 삭제하고 있습니다...");
+        fetch(googleWebAppsUrl, { method: 'POST', body: JSON.stringify({ action: 'deleteCard', name: name }) })
+        .then(r => r.json()).then(res => {
+            if(res.result === "success") { cards = cards.filter(c => c !== name); renderSettingsCardManageList(); }
+        }).finally(() => hideLoading());
+    }
+
+    // 환경설정 통합 마스터 저장 처리 모듈
+    function saveMasterSettings() {
+        const ledgerName = document.getElementById("settings-ledger-name").value.trim();
+        const user1 = document.getElementById("settings-user1").value.trim();
+        const user2 = document.getElementById("settings-user2").value.trim();
+        const tgToken = document.getElementById("settings-telegram-token").value.trim();
+        const tgChatId = document.getElementById("settings-telegram-chatid").value.trim();
+        const tgToggle = document.getElementById("settings-telegram-toggle").value;
+        const targetApi = document.getElementById("settings-api-url").value.trim();
+
+        if(!ledgerName || !user1 || !user2) { alert("가계부 명칭 및 사용자의 식별 정보는 공란이 될 수 없습니다."); return; }
+        
+        showLoading("통합 환경설정 변경사항을 구글 서버로 업로드 및 갱신하고 있습니다...");
+        
+        // 로컬스토리지 엔드포인트 수동 주소변경 대응
+        if(targetApi !== googleWebAppsUrl) {
+            localStorage.setItem("googleWebAppsUrl", targetApi);
+            googleWebAppsUrl = targetApi;
+        }
+
+        const updatePayload = {
+            ledgerName: ledgerName,
+            user1: user1,
+            user2: user2,
+            telegramToken: tgToken,
+            telegramChatId: tgChatId,
+            telegramToggle: tgToken === "" ? "OFF" : tgToggle // 토큰 비어있을 시 자동 OFF 간주 처리
+        };
+
+        fetch(googleWebAppsUrl, { method: 'POST', body: JSON.stringify({ action: 'saveAppSettings', settings: updatePayload }) })
+        .then(r => r.json()).then(res => {
+            if(res.result === "success") {
+                appSettings.ledgerName = ledgerName;
+                appSettings.user1 = user1;
+                appSettings.user2 = user2;
+                appSettings.telegramToken = tgToken;
+                appSettings.telegramChatId = tgChatId;
+                appSettings.telegramToggle = updatePayload.telegramToggle;
+                closeSettingsModal();
+                applyAppSettings();
+                loadCloudData(); // 최신 세팅 기틀 리로드 반영
+            }
+        }).catch(() => alert("설정 데이터 전송에 실패했습니다.")).finally(() => hideLoading());
     }
 
     function openCategoryModal() { document.getElementById('category-modal').style.display = 'flex'; renderCategoryManageList(); }
@@ -399,7 +621,7 @@ checkAndSetUrl();
         showLoading("카테고리를 클라우드에 추가하고 있습니다...");
         fetch(googleWebAppsUrl, { method: 'POST', body: JSON.stringify({ action: 'addCategory', name: name }) })
         .then(r => r.json())
-        .then(result => { if (result.result === "success") { categories.push(name); input.value = ''; renderCategoryManageList(); renderCategoryDropdowns(); } else { alert('카테고리 클라우드 저장 실패: ' + result.error); } }).catch(err => alert('네트워크 오류가 발생했습니다.')).finally(() => hideLoading());
+        .then(result => { if (result.result === "success") { categories.push(name); input.value = ''; renderCategoryManageList(); renderCategoryDropdowns(); } }).finally(() => hideLoading());
     }
 
     function deleteCategory(name, btnElement) {
@@ -408,7 +630,7 @@ checkAndSetUrl();
         showLoading("카테고리를 클라우드에서 제거하고 있습니다...");
         fetch(googleWebAppsUrl, { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', name: name }) })
         .then(r => r.json())
-        .then(result => { if (result.result === "success") { categories = categories.filter(cat => cat !== name); renderCategoryManageList(); renderCategoryDropdowns(); } else { alert('카테고리 클라우드 삭제 실패: ' + result.error); } }).catch(err => alert('네트워크 오류가 발생했습니다.')).finally(() => hideLoading());
+        .then(result => { if (result.result === "success") { categories = categories.filter(cat => cat !== name); renderCategoryManageList(); renderCategoryDropdowns(); } }).finally(() => hideLoading());
     }
 
     function initHeader() { const tzOffset = new Date().getTimezoneOffset() * 60000; selectedMonth = (new Date(Date.now() - tzOffset)).toISOString().substring(0, 7); document.getElementById('month-picker').value = selectedMonth; updateToggleBtnTexts(); }
@@ -438,10 +660,11 @@ checkAndSetUrl();
     function openCardLimitModal() {
         document.getElementById('card-limit-modal').style.display = 'flex';
         const listDiv = document.getElementById('card-limit-inputs-list');
-        const targetCards = ['현대카드', 'bc카드', '국민카드', '롯데카드', '신한카드', 'NH카드'];
+        // '현금/계좌', '온누리' 제외한 동적 생성 유효 카드 정렬 매핑 처리
+        const targetCards = cards.filter(c => c !== '현금/계좌' && c !== '온누리');
         listDiv.innerHTML = targetCards.map(card => `
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                <span style="font-size: 14px; font-weight: bold; color: #334155; width: 75px;">${card}</span>
+                <span style="font-size: 14px; font-weight: bold; color: #334155; width: 100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${card}</span>
                 <input type="number" id="limit-${card}" value="${cardLimits[card] || ''}" placeholder="기준액" style="flex: 1; padding: 10px; font-size: 14px; margin: 0;">
                 <span style="font-size: 13px; color: #64748b;">원</span>
             </div>
@@ -450,16 +673,15 @@ checkAndSetUrl();
     function closeCardLimitModal() { document.getElementById('card-limit-modal').style.display = 'none'; }
     
     function saveCardLimits() {
-        const targetCards = ['현대카드', 'bc카드', '국민카드', '롯데카드', '신한카드', 'NH카드'];
+        const targetCards = cards.filter(c => c !== '현금/계좌' && c !== '온누리');
         const newLimits = {};
         targetCards.forEach(card => { const val = document.getElementById(`limit-${card}`).value; newLimits[card] = val ? parseInt(val) : 0; });
         
         showLoading("서버에 목표 실적을 동기화 중입니다...");
         fetch(googleWebAppsUrl, { method: 'POST', body: JSON.stringify({ action: 'saveCardLimits', limits: newLimits }) })
         .then(r => r.json()).then(result => { 
-            if (result.result === "success") { cardLimits = newLimits; closeCardLimitModal(); renderApp(); } 
-            else { alert('실적 설정 저장 실패: ' + result.error); }
-        }).catch(err => { alert('서버 연결 오류 발생'); }).finally(() => hideLoading());
+            if (result.result === "success") { cardLimits = newLimits; cardLimits = Object.assign(cardLimits, newLimits); closeCardLimitModal(); renderApp(); } 
+        }).finally(() => hideLoading());
     }
 
     function setCardSort(val) { currentCardSort = val; renderCardModal(); }
@@ -478,20 +700,23 @@ checkAndSetUrl();
         else if(currentCardSort === 'date_asc') filtered.sort((a,b) => new Date(a.date) - new Date(b.date));
         else filtered.sort((a,b) => new Date(b.date) - new Date(a.date));
         
-        modalList.innerHTML = filtered.map(item => `
-            <li class="ledger-item ${item.user}" onclick="openModal(${item.id}); closeCardModal();">
-                <div style="display: flex; flex-direction: column; gap: 5px; flex: 1;">
-                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                        <span class="user-badge ${item.user}">${item.user}</span>
-                        <span class="date-text">${item.date.substring(5)}</span>
-                        <span class="card-badge">${item.card || '현금/계좌'}</span>
-                        <span class="card-badge" style="background-color: #e2e8f0;">${item.category || '기타'}</span>
+        modalList.innerHTML = filtered.map(item => {
+            const userText = item.user === '남편' ? appSettings.user1 : appSettings.user2;
+            return `
+                <li class="ledger-item ${item.user}" onclick="openModal(${item.id}); closeCardModal();">
+                    <div style="display: flex; flex-direction: column; gap: 5px; flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span class="user-badge ${item.user}">${userText}</span>
+                            <span class="date-text">${item.date.substring(5)}</span>
+                            <span class="card-badge">${item.card || '현금/계좌'}</span>
+                            <span class="card-badge" style="background-color: #e2e8f0;">${item.category || '기타'}</span>
+                        </div>
+                        <div class="item-title" style="padding-left: 2px;">${item.title}</div>
                     </div>
-                    <div class="item-title" style="padding-left: 2px;">${item.title}</div>
-                </div>
-                <span class="item-amount expense" style="margin-left:10px; flex-shrink:0;">${item.amount.toLocaleString()}원</span>
-            </li>
-        `).join('') || '<div style="text-align:center; padding:20px; color:#94a3b8;">내역이 없습니다.</div>';
+                    <span class="item-amount expense" style="margin-left:10px; flex-shrink:0;">${item.amount.toLocaleString()}원</span>
+                </li>
+            `;
+        }).join('') || '<div style="text-align:center; padding:20px; color:#94a3b8;">내역이 없습니다.</div>';
     }
 
     function openCategoryDetailModal(catName) {
@@ -510,7 +735,7 @@ checkAndSetUrl();
         let totalExp = 0; let cardTotalsMap = {}; 
         
         filtered.forEach(i => { 
-            if (i.type === 'expense' || i.type === '지출') { 
+            if (i.type === 'expense') { 
                 totalExp += i.amount; 
                 let cardKey = i.card || '현금/계좌'; 
                 cardTotalsMap[cardKey] = (cardTotalsMap[cardKey] || 0) + i.amount; 
@@ -528,11 +753,14 @@ checkAndSetUrl();
         else if(currentCategorySort === 'date_asc') filtered.sort((a,b) => new Date(a.date) - new Date(b.date));
         else filtered.sort((a,b) => new Date(b.date) - new Date(a.date));
 
-        document.getElementById('category-detail-list').innerHTML = filtered.map(item => `
-            <div class="ledger-item ${item.user}" style="border-radius:6px; margin-bottom:5px;" onclick="openModal(${item.id}); closeCategoryDetailModal();">
-                <div style="display: flex; flex-direction: column; gap: 5px; flex: 1;"><div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"><span class="user-badge ${item.user}">${item.user}</span><span class="date-text">${item.date.substring(5)}</span><span class="card-badge">${item.card || '현금/계좌'}</span><span class="card-badge" style="background-color: #e2e8f0;">${item.category || '기타'}</span></div><div class="item-title" style="padding-left: 2px;">${item.title}</div></div>
-                <div class="item-amount ${(item.type === 'income' || item.type === '수입') ? 'income' : 'expense'}" style="margin-left:10px; flex-shrink:0;">${(item.type === 'income' || item.type === '수입') ? '+' : '-'}${item.amount.toLocaleString()}원</div>
-            </div>`).join('') || '<div style="text-align:center; padding:20px; color:#94a3b8; font-size:13px;">내역이 존재하지 않습니다.</div>';
+        document.getElementById('category-detail-list').innerHTML = filtered.map(item => {
+            const userText = item.user === '남편' ? appSettings.user1 : appSettings.user2;
+            return `
+                <div class="ledger-item ${item.user}" style="border-radius:6px; margin-bottom:5px;" onclick="openModal(${item.id}); closeCategoryDetailModal();">
+                    <div style="display: flex; flex-direction: column; gap: 5px; flex: 1;"><div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"><span class="user-badge ${item.user}">${userText}</span><span class="date-text">${item.date.substring(5)}</span><span class="card-badge">${item.card || '현금/계좌'}</span><span class="card-badge" style="background-color: #e2e8f0;">${item.category || '기타'}</span></div><div class="item-title" style="padding-left: 2px;">${item.title}</div></div>
+                    <div class="item-amount ${item.type === 'income' ? 'income' : 'expense'}" style="margin-left:10px; flex-shrink:0;">${item.type === 'income' ? '+' : '-'}${item.amount.toLocaleString()}원</div>
+                </div>`;
+        }).join('') || '<div style="text-align:center; padding:20px; color:#94a3b8; font-size:13px;">내역이 존재하지 않습니다.</div>';
     }
     
     function closeCategoryDetailModal() { document.getElementById('category-detail-modal').style.display = 'none'; }
@@ -541,17 +769,6 @@ checkAndSetUrl();
     function selectType(type) { selectedType = type; document.getElementById('btn-inc').classList.toggle('active', type === 'income'); document.getElementById('btn-exp').classList.toggle('active', type === 'expense'); const cardSelect = document.getElementById('card'); cardSelect.disabled = (type === 'income'); if(type === 'income') cardSelect.value = '선택안함'; }
     function changeModalUser(user) { modalSelectedUser = user; document.getElementById('modal-user-husband').classList.toggle('active', user === '남편'); document.getElementById('modal-user-wife').classList.toggle('active', user === '아내'); }
     function selectModalType(type) { modalSelectedType = type; document.getElementById('modal-inc').classList.toggle('active', type === 'income'); document.getElementById('modal-exp').classList.toggle('active', type === 'expense'); const mCardSelect = document.getElementById('modal-card'); mCardSelect.disabled = (type === 'income'); if(type === 'income') mCardSelect.value = '선택안함'; }
-    
-    function loadCloudData() {
-        showLoading("서버 클라우드 데이터를 동기화하고 있습니다...");
-        fetch(googleWebAppsUrl).then(res => res.json()).then(data => { 
-            ledgerItems = data.items || []; 
-            if (data.categories && data.categories.length > 0) categories = data.categories; 
-            cardLimits = (data.cardLimits && Object.keys(data.cardLimits).length > 0) ? data.cardLimits : {};
-            renderCategoryDropdowns(); 
-            renderApp(); 
-        }).catch(err => console.error(err)).finally(() => hideLoading());
-    }
     
     function addItem() {
         const date = document.getElementById('date').value; const card = document.getElementById('card').value; const title = document.getElementById('title').value; const amount = document.getElementById('amount').value; const category = document.getElementById('category').value; 
@@ -580,11 +797,11 @@ checkAndSetUrl();
         const listElement = document.getElementById('ledger-list'); listElement.innerHTML = '';
         let totalIncome = 0; let totalExpense = 0; let cardTotals = {}; let categoryTotals = {}; 
         let onnuriBalance = 0;
-        let totalCardExpense = 0; // 💡 추가: 카드 결제 예정금액용 변수
+        let totalCardExpense = 0; 
         
         // 전체 내역 기준으로 온누리 잔액 계산
         ledgerItems.forEach(item => {
-            if ((item.type === 'expense' || item.type === '지출')) {
+            if (item.type === 'expense') {
                 if ((item.card === '현금/계좌' || item.card === '선택안함') && item.category === '온누리') onnuriBalance += item.amount;
                 if (item.card === '온누리') onnuriBalance -= item.amount;
             }
@@ -599,13 +816,13 @@ checkAndSetUrl();
         let monthItems = ledgerItems.filter(item => item.date && item.date.startsWith(selectedMonth));
         
         monthItems.forEach(item => {
-            if (item.type === 'income' || item.type === '수입') totalIncome += item.amount;
+            if (item.type === 'income') totalIncome += item.amount;
             else {
                 let cardKey = item.card || '현금/계좌'; cardTotals[cardKey] = (cardTotals[cardKey] || 0) + item.amount;
                 let catKey = item.category || '기타'; categoryTotals[catKey] = (categoryTotals[catKey] || 0) + item.amount;
                 if (item.card !== '온누리') totalExpense += item.amount;
                 
-                // 💡 추가: 카드 결제 예정 금액 자동 합산 (현금/계좌, 온누리, 선택안함 제외)
+                // 카드 결제 예정 금액 자동 합산 (현금/계좌, 온누리, 선택안함 제외)
                 if (item.card !== '온누리' && item.card !== '현금/계좌' && item.card !== '선택안함' && item.card) {
                     totalCardExpense += item.amount;
                 }
@@ -620,7 +837,8 @@ checkAndSetUrl();
         
         monthItems.forEach(item => {
             const li = document.createElement('li'); li.className = `ledger-item ${item.user}`; li.onclick = () => openModal(item.id);
-            li.innerHTML = `<div style="display: flex; flex-direction: column; gap: 5px; flex: 1;"><div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"><span class="user-badge ${item.user}">${item.user}</span><span class="date-text">${item.date.substring(5)}</span><span class="card-badge">${item.card || '현금/계좌'}</span><span class="card-badge" style="background-color: #e2e8f0;">${item.category || '기타'}</span></div><div class="item-title" style="padding-left: 2px;">${item.title}</div></div><div class="item-amount ${(item.type === 'income' || item.type === '수입') ? 'income' : 'expense'}" style="margin-left: 10px; flex-shrink: 0;">${(item.type === 'income' || item.type === '수입') ? '+' : '-'}${item.amount.toLocaleString()}원</div>`;
+            const userText = item.user === '남편' ? appSettings.user1 : appSettings.user2;
+            li.innerHTML = `<div style="display: flex; flex-direction: column; gap: 5px; flex: 1;"><div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"><span class="user-badge ${item.user}">${userText}</span><span class="date-text">${item.date.substring(5)}</span><span class="card-badge">${item.card || '현금/계좌'}</span><span class="card-badge" style="background-color: #e2e8f0;">${item.category || '기타'}</span></div><div class="item-title" style="padding-left: 2px;">${item.title}</div></div><div class="item-amount ${item.type === 'income' ? 'income' : 'expense'}" style="margin-left: 10px; flex-shrink: 0;">${item.type === 'income' ? '+' : '-'}${item.amount.toLocaleString()}원</div>`;
             listElement.appendChild(li);
         });
 
@@ -644,7 +862,6 @@ checkAndSetUrl();
             const btn = document.createElement('button'); const container = document.createElement('div'); btn.className = 'card-box'; btn.onclick = () => openCategoryDetailModal(cat); btn.innerHTML = `<span class="card-name">${cat}</span><span class="card-val">${categoryTotals[cat].toLocaleString()}원</span>`; container.className = 'card-row-container'; container.appendChild(btn); categoryGrid.appendChild(container);
         });
         
-        // 💡 수정: 라벨 명칭 변경 및 총 지출 금액/카드 결제 예정금액 동적 매핑
         document.getElementById('balance-label').innerText = `${monthNum}월 총 지출 금액`;
         document.getElementById('db-balance').innerText = `${totalExpense.toLocaleString()} 원`;
         document.getElementById('card-pending-amount').innerText = `${totalCardExpense.toLocaleString()}원`;
@@ -655,14 +872,11 @@ checkAndSetUrl();
         let netBalance = totalIncome - totalExpense;
         let summaryBalanceEl = document.getElementById('summary-balance');
         summaryBalanceEl.innerText = `${netBalance.toLocaleString()}원`;
-        if (netBalance >= 0) {
-            summaryBalanceEl.style.color = '#4ade80';
-        } else {
-            summaryBalanceEl.style.color = '#f87171';
-        }
+        if (netBalance >= 0) summaryBalanceEl.style.color = '#4ade80';
+        else summaryBalanceEl.style.color = '#f87171';
     }
     
-    initHeader(); setTodayDate(); initCategories(); loadCloudData();
+    initHeader(); setTodayDate(); checkAppConnection();
 </script>
 
 </body>
